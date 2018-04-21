@@ -48,7 +48,6 @@ def pload(name):
 def hash_reader(fullname):
     h = hashlib.md5()
     try:
-
         with io.open(fullname, RMODE) as f:
             while True:
                 data = f.read(BYTES_CHUNK)
@@ -128,13 +127,17 @@ def hash_string(s, n=8):
     return h.hexdigest()[:n]
 
 
-def get_files_matching(root, name):
+def get_files_matching(root, name, exact=True, startswith=False):
     matches = []
     matchap = matches.append
     for folder, _, files in os.walk(root):
         for f in files:
-            if f == name:
-                matchap(os.path.join(folder, f))
+            if exact:
+                if f == name:
+                    matchap(os.path.join(folder, f))
+            if startswith:
+                if f.startswith(name):
+                    matchap(os.path.join(folder, f))
     return matches
 
 
