@@ -128,6 +128,21 @@ def hash_string(s, n=8):
     return h.hexdigest()[:n]
 
 
+def get_files_matching(root, name):
+    matches = []
+    matchap = matches.append
+    for folder, _, files in os.walk(root):
+        for f in files:
+            if f == name:
+                matchap(os.path.join(folder, f))
+    return matches
+
+
+def delete_files(files):
+    for f in files:
+        os.remove(f)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--path')
