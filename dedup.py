@@ -5,7 +5,8 @@ import logging
 import cPickle as pickle
 
 BYTES_CHUNK = 4096
-
+RMODE = 'r' if sys.platform == 'nt' else 'rb'
+WMODE = 'w' if sys.platform == 'nt' else 'wb'
 n = dt.datetime.now()
 now = '-'.join(map(lambda x: str(x).zfill(2), [n.year, n.month, n.day, n.hour, n.minute,
                                                n.second]))
@@ -20,7 +21,7 @@ logger.setLevel(logging.DEBUG)
 def pdump(data, name):
     if not name.endswith('.p'):
         name += '.p'
-    with open(name, 'wb') as f:
+    with open(name, WMODE) as f:
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
 
@@ -35,7 +36,7 @@ def pload(name):
 def hash_reader(fullname):
     h = hashlib.md5()
     try:
-        with open(fullname, 'rb') as f:
+        with open(fullname) as f:
             while True:
                 data = f.read(BYTES_CHUNK)
                 if data:
