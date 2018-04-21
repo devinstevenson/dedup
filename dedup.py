@@ -1,12 +1,23 @@
+import argparse
 import datetime as dt
 import hashlib
-import os, sys
+import os
+import sys
 import logging
-import cPickle as pickle
+import pandas as pd
+if sys.version_info.major == 2:
+    import cPickle as pickle
+else:
+    import pickle
 
 BYTES_CHUNK = 4096
-RMODE = 'r' if sys.platform == 'nt' else 'rb'
-WMODE = 'w' if sys.platform == 'nt' else 'wb'
+if sys.version_info.major == 2:
+    RMODE = 'r' if sys.platform == 'nt' else 'rb'
+    WMODE = 'w' if sys.platform == 'nt' else 'wb'
+else:
+    RMODE = 'r'
+    WMODE = 'w'
+
 n = dt.datetime.now()
 now = '-'.join(map(lambda x: str(x).zfill(2), [n.year, n.month, n.day, n.hour, n.minute,
                                                n.second]))
@@ -63,11 +74,17 @@ def is_excluded(path, exclude):
 def get_record(filenamepath):
     h = hash_reader(filenamepath)
     stat = os.stat(filenamepath)
-    return h.hexdigest(), stat
+    return {'digest': h.hexdigest(),
+            'ctime': stat.st_ctime,
+            'atime': stat.st_atime,
+            'mtime': stat.st_mtime,
+            'size': stat.st_size,
+            }
 
 
-def create_index(dataset):
+def create_index(dataset, hashing=False):
     logger.info("started")
+    index_name = hash_string(dataset)
     datarecord = []
     failed_rec = []
     recap = datarecord.append  # alias
@@ -77,28 +94,42 @@ def create_index(dataset):
         for folder, _, files in g:
             for filename in files:
                 path = os.path.join(folder, filename)
+                rec = {'filename': filename,
+                       'path': path}
                 try:
-                    digest, stat = get_record(path)
-                    recap((filename, path, digest, stat))
+                    if hashing:
+                        rec.update(get_record(path))
+                    recap(rec)
                 except:
                     failed_rec.append(path)
     except:
-        pdump(datarecord, 'record_failed_{}'.format(now))
+        # only error iterating
+        pdump(datarecord, 'indexpartial {}_{}'.format(index_name, now))
         logger.exception("run fail complete:{} fail_cnt:{}".format(len(datarecord),
                                                                    len(failed_rec)))
     finally:
         if failed_rec:
             pdump(failed_rec, 'failed_recs_{}'.format(now))
-    index_name = dataset.replace(os.path.sep, '--')
     pdump(datarecord, 'index {}_{}'.format(index_name, now))
     logger.info("length of dataset {}".format(len(datarecord)))
 
 
+def hash_string(s, n=8):
+    h = hashlib.md5(str(s))
+    return h.hexdigest()[:n]
+
+
 if __name__ == "__main__":
-    dataset = sys.argv[1]
-    logfilename = 'debug-{}-{}.log'.format(dataset.replace(os.path.sep, '--'), now)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path')
+    parser.add_argument('--hash', action='store_true')
+    args = parser.parse_args()
+    dataset = args.path
+    h = hash_string(dataset)
+    logfilename = 'debug-{}-{}.log'.format(h[:8], now)
     filelog = logging.FileHandler(logfilename)
     filelog.setFormatter(formatter)
     logging.root.addHandler(filelog)
+    logger.info("Hash={} Args={}".format(dataset, h, args))
 
-    create_index(dataset)
+    create_index(dataset, hashing=args.hash)
