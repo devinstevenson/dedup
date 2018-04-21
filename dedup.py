@@ -1,6 +1,7 @@
 import argparse
 import datetime as dt
 import hashlib
+import io
 import os
 import sys
 import logging
@@ -12,11 +13,11 @@ else:
 
 BYTES_CHUNK = 4096
 if sys.version_info.major == 2:
-    RMODE = 'r' if sys.platform == 'nt' else 'rb'
-    WMODE = 'w' if sys.platform == 'nt' else 'wb'
+    RMODE = 'rb' if sys.platform == 'nt' else 'rb'
+    WMODE = 'wb' if sys.platform == 'nt' else 'wb'
 else:
-    RMODE = 'r'
-    WMODE = 'w'
+    RMODE = 'rb'
+    WMODE = 'wb'
 
 n = dt.datetime.now()
 now = '-'.join(map(lambda x: str(x).zfill(2), [n.year, n.month, n.day, n.hour, n.minute,
@@ -32,14 +33,14 @@ logger.setLevel(logging.DEBUG)
 def pdump(data, name):
     if not name.endswith('.p'):
         name += '.p'
-    with open(name, WMODE) as f:
+    with io.open(name, WMODE) as f:
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
 
 def pload(name):
     if not name.endswith('.p'):
         name += '.p'
-    with open(name) as f:
+    with io.open(name, RMODE) as f:
         data = pickle.load(f)
     return data
 
@@ -47,7 +48,8 @@ def pload(name):
 def hash_reader(fullname):
     h = hashlib.md5()
     try:
-        with open(fullname) as f:
+
+        with io.open(fullname, RMODE) as f:
             while True:
                 data = f.read(BYTES_CHUNK)
                 if data:
@@ -56,8 +58,7 @@ def hash_reader(fullname):
                     break
     except IOError:
         logger.exception(fullname)
-        h = hashlib.md5()
-        return h.update(fullname)
+        return 'IOError'
     return h
 
 
@@ -100,8 +101,9 @@ def create_index(dataset, hashing=False):
                     if hashing:
                         rec.update(get_record(path))
                     recap(rec)
-                except:
-                    failed_rec.append(path)
+                except Exception as e:
+                    rec['error'] = str(e)
+                    failed_rec.append(rec)
     except:
         # only error iterating
         pdump(datarecord, 'indexpartial {}_{}'.format(index_name, now))
@@ -109,13 +111,20 @@ def create_index(dataset, hashing=False):
                                                                    len(failed_rec)))
     finally:
         if failed_rec:
-            pdump(failed_rec, 'failed_recs_{}'.format(now))
-    pdump(datarecord, 'index {}_{}'.format(index_name, now))
+            dff = pd.DataFrame(failed_rec)
+            dff.to_pickle('failed_recs_{}.p'.format(now))
+            dff.to_csv('failed_recs_{}.csv'.format(now))
+    df = pd.DataFrame(datarecord)
+    df.to_pickle('index {}_{}.p'.format(index_name, now))
+    df.to_csv('index {}_{}.csv'.format(index_name, now))
     logger.info("length of dataset {}".format(len(datarecord)))
 
 
 def hash_string(s, n=8):
-    h = hashlib.md5(str(s))
+    try:
+        h = hashlib.md5(str(s))
+    except TypeError:
+        h = hashlib.md5(str(s).encode('utf-8'))
     return h.hexdigest()[:n]
 
 
@@ -130,6 +139,6 @@ if __name__ == "__main__":
     filelog = logging.FileHandler(logfilename)
     filelog.setFormatter(formatter)
     logging.root.addHandler(filelog)
-    logger.info("Hash={} Args={}".format(dataset, h, args))
+    logger.info("Hash={} Args={}".format(h, args))
 
     create_index(dataset, hashing=args.hash)
