@@ -5,12 +5,12 @@ import logging
 import cPickle as pickle
 
 BYTES_CHUNK = 4096
-dataset_a = ''
-dataset_b = ''
 
 n = dt.datetime.now()
-now = '-'.join(map(lambda x: str(x).zfill(2), [n.year, n.month, n.day, n.hour, n.minute, n.second]))
-FORMAT = '%(levelname)s: %(asctime)s: lineno=%(lineno)s: function=%(funcName)s: %(message)s'
+now = '-'.join(map(lambda x: str(x).zfill(2), [n.year, n.month, n.day, n.hour, n.minute,
+                                               n.second]))
+FORMAT = ('%(levelname)s: %(asctime)s: lineno=%(lineno)s: '
+          'function=%(funcName)s: %(message)s')
 formatter = logging.Formatter(FORMAT)
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
@@ -94,8 +94,10 @@ def create_index(dataset):
 
 
 if __name__ == "__main__":
-    filelog = logging.FileHandler('debug {}.log'.format(now))
+    dataset = sys.argv[1]
+    logfilename = 'debug-{}-{}.log'.format(dataset.replace(os.path.sep, '--'), now)
+    filelog = logging.FileHandler(logfilename)
     filelog.setFormatter(formatter)
     logging.root.addHandler(filelog)
-    dataset = sys.argv[1]
+
     create_index(dataset)
