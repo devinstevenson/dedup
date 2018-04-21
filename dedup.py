@@ -11,13 +11,10 @@ dataset_b = ''
 n = dt.datetime.now()
 now = '-'.join(map(lambda x: str(x).zfill(2), [n.year, n.month, n.day, n.hour, n.minute, n.second]))
 FORMAT = '%(levelname)s: %(asctime)s: lineno=%(lineno)s: function=%(funcName)s: %(message)s'
-filelog = logging.FileHandler('debug {}.log'.format(now))
 formatter = logging.Formatter(FORMAT)
-filelog.setFormatter(formatter)
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logging.root.addHandler(filelog)
 
 
 def pdump(data, name):
@@ -74,7 +71,7 @@ def create_index(dataset):
     failed_rec = []
     recap = datarecord.append  # alias
     g = os.walk(dataset)
-    now = dt.datetime.now()
+
     try:
         for folder, _, files in g:
             for filename in files:
@@ -86,8 +83,8 @@ def create_index(dataset):
                     failed_rec.append(path)
     except:
         pdump(datarecord, 'record_failed_{}'.format(now))
-        logger.exeption("run fail complete:{} fail_cnt:{}".format(len(datarecord),
-                                                                  len(failed_rec)))
+        logger.exception("run fail complete:{} fail_cnt:{}".format(len(datarecord),
+                                                                   len(failed_rec)))
     finally:
         if failed_rec:
             pdump(failed_rec, 'failed_recs_{}'.format(now))
@@ -97,5 +94,8 @@ def create_index(dataset):
 
 
 if __name__ == "__main__":
+    filelog = logging.FileHandler('debug {}.log'.format(now))
+    filelog.setFormatter(formatter)
+    logging.root.addHandler(filelog)
     dataset = sys.argv[1]
     create_index(dataset)
