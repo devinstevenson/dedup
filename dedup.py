@@ -152,7 +152,7 @@ def count_files(root):
     for folder, _, files in os.walk(root):
         for f in files:
             c += 1
-    print c
+    print(c)
 
 
 def delete_files(files):
