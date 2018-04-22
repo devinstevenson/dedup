@@ -3,6 +3,7 @@ import datetime as dt
 import hashlib
 import io
 import os
+import re
 import sys
 import logging
 import pandas as pd
@@ -11,6 +12,7 @@ if sys.version_info.major == 2:
 else:
     import pickle
 
+REG_NOT_ASCII = r'[^\x00-\x7f]'
 BYTES_CHUNK = 4096
 if sys.version_info.major == 2:
     RMODE = 'rb' if sys.platform == 'nt' else 'rb'
@@ -160,26 +162,27 @@ def delete_files(files):
 
 def rename_bad(bad):
     for folder in bad:
-        new = re.sub(r'[^\x00-\x7f]', ' ', folder)
+        new = re.sub(REG_NOT_ASCII, ' ', folder)
         if os.path.exists(new):
-            new = re.sub(r'[^\x00-\x7f]', ' -', folder)
+            new = re.sub(REG_NOT_ASCII, ' -', folder)
             if os.path.exists(new):
-                new = re.sub(r'[^\x00-\x7f]', ' --', folder)
+                new = re.sub(REG_NOT_ASCII, ' --', folder)
         try:
          os.rename(folder, new)
         except:
             print(folder)
-1
+
+
 def find_bad_names(root):
     bad = []
     bfile = []
     for folder, _, files in os.walk(root):
-        if re.sub(r'[^\x00-\x7f]', 'XXXXXXXX', folder) != folder:
+        if re.sub(REG_NOT_ASCII, 'XXXXXXXX', folder) != folder:
             bad.append(folder)
         for f in files:
-            if re.sub(r'[^\x00-\x7f]', 'XXXXXXXX', f) != f:
+            if re.sub(REG_NOT_ASCII, 'XXXXXXXX', f) != f:
                 bfile.append((folder, f))
-    print(len(bad), len(bfile))    
+    print(len(bad), len(bfile))
     return bad, bfile
 
 
