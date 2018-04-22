@@ -29,6 +29,8 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+skipfiles_starts = ['.dropb', '.DS', '.ds', '.Ds', '.dS', '.smbd']
+
 
 def pdump(data, name):
     if not name.endswith('.p'):
@@ -58,7 +60,7 @@ def hash_reader(fullname):
     except IOError:
         logger.exception(fullname)
         return 'IOError'
-    return h
+    return h.hexdigest()
 
 
 def is_excluded(path, exclude):
@@ -72,9 +74,9 @@ def is_excluded(path, exclude):
 
 
 def get_record(filenamepath):
-    h = hash_reader(filenamepath)
+    digest = hash_reader(filenamepath)
     stat = os.stat(filenamepath)
-    return {'digest': h.hexdigest(),
+    return {'digest': digest,
             'ctime': stat.st_ctime,
             'atime': stat.st_atime,
             'mtime': stat.st_mtime,
@@ -93,6 +95,8 @@ def create_index(dataset, hashing=False):
     try:
         for folder, _, files in g:
             for filename in files:
+                if any([filename.startswith(sw) for sw in skipfiles_starts]):
+                    continue
                 path = os.path.join(folder, filename)
                 rec = {'filename': filename,
                        'path': path}
@@ -139,6 +143,14 @@ def get_files_matching(root, name, exact=True, startswith=False):
                 if f.startswith(name):
                     matchap(os.path.join(folder, f))
     return matches
+
+
+def count_files(root):
+    c = 0
+    for folder, _, files in os.walk(root):
+        for f in files:
+            c += 1
+    print c
 
 
 def delete_files(files):
