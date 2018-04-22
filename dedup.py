@@ -158,6 +158,31 @@ def delete_files(files):
         os.remove(f)
 
 
+def rename_bad(bad):
+    for folder in bad:
+        new = re.sub(r'[^\x00-\x7f]', ' ', folder)
+        if os.path.exists(new):
+            new = re.sub(r'[^\x00-\x7f]', ' -', folder)
+            if os.path.exists(new):
+                new = re.sub(r'[^\x00-\x7f]', ' --', folder)
+        try:
+         os.rename(folder, new)
+        except:
+            print(folder)
+1
+def find_bad_names(root):
+    bad = []
+    bfile = []
+    for folder, _, files in os.walk(root):
+        if re.sub(r'[^\x00-\x7f]', 'XXXXXXXX', folder) != folder:
+            bad.append(folder)
+        for f in files:
+            if re.sub(r'[^\x00-\x7f]', 'XXXXXXXX', f) != f:
+                bfile.append((folder, f))
+    print(len(bad), len(bfile))    
+    return bad, bfile
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--path')
