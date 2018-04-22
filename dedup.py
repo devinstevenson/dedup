@@ -31,7 +31,7 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-skipfiles_starts = ['.dropb', '.DS', '.ds', '.Ds', '.dS', '.smbd']
+skipfiles_starts = ['.dropb', '.DS', '.ds', '.Ds', '.dS', '.smbd', '._']
 
 
 def pdump(data, name):
@@ -168,7 +168,7 @@ def rename_bad(bad):
             if os.path.exists(new):
                 new = re.sub(REG_NOT_ASCII, ' --', folder)
         try:
-         os.rename(folder, new)
+            os.rename(folder, new)
         except:
             print(folder)
 
