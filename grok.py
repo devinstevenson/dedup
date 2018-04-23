@@ -180,8 +180,14 @@ def run_make_dataset(df):
     files_to_update_jnt = determine_latest(df, c.digest)
 
 
+def fix_slash(path):
+    return '/'.join(path.split('\\'))
+
+
 def update_files(pairs):
     for source, dest in pairs:
+        source = fix_slash(source)
+        dest = fix_slash(dest)
         logger.info("Source %s", source)
         logger.info("Dest %s", dest)
         back_file(dest)
