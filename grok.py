@@ -1,22 +1,26 @@
 import os
+import hashlib
 import pandas as pd
+from fuzzywuzzy import fuzz
 
-bkup = {'hash': '57a83ef1', 'path': 'W:/Z Drive Backup 4-14-18'}
-main = {'hash': 'e7c3ebbe', 'path': 'Z:/Dropbox (G Family)'}
+# PY3
+bkup = [{'hash': '57a83ef1', 'path': 'W:/Z Drive Backup 4-14-18'},
+        {'hash': '0f7577f2', 'path': 'W:/Z Drive Backup 4-14-18/Dropbox/'}]
+main = [{'hash': 'e7c3ebbe', 'path': 'Z:/Dropbox (G Family)'},
+        {'hash': 'fd7fa1b0', 'path': 'Z:/Dropbox (G Family)/'}]
 
 datapath = '/Users/devinstevenson/Dropbox/tech_dedup'
 
 deletable = ['.DS_Store', '._.DS_Store', '.ds_store', '.dropbox.attr', '.dropbox',
              '.dropbox.cache', 'Thumbs.db' '.dropbox.device']
+delete_filename = ['desktop.ini']
 
 
 def add_location(df):
-
-    split = df.path.str.split('\\')
-    location = split.apply(lambda x: x[:-1]).str.join('/')
-    location = location.str.replace('W:/Z Drive Backup 4-14-18/Dropbox', 'root')
-    location = location.str.replace('Z:/Dropbox (G Family)', 'root')
-    folder = location.str.split('/').apply(lambda x: x[-2] if len(x) >= 2 else x[-1])
+    splitjoin = df.path.str.split('\\').str.join('/')
+    location = splitjoin.str.replace('W:/Z Drive Backup 4-14-18/Dropbox', 'root')
+    location = location.str.replace('Z:/Dropbox \(G Family\)', 'root')
+    folder = location.str.split('/').apply(lambda x: x[:-1]).str.join('/')
     return df.assign(location=location, folder=folder)
 
 
@@ -44,16 +48,143 @@ def assignft(df):
     return df.assign(filetype=df.filename.apply(filetyper))
 
 
+def set_source(df):
+    iserror = False
+    if 'error' in df.columns:
+        iserror = True
+    if df.path.iloc[0].startswith('W'):
+        key = 'W'
+    else:
+        key = 'Z'
+    # if iserror:
+    #     key += 'e'
+    return df.assign(source=key)
+
+
 def process(df):
-    df = assignft(df)
     df = add_location(df)
     df = df.assign(iscache=is_cache(df.location))
-    if df.path.iloc[0].startswith('W'):
-        df = df[df.location.str.startswith('root')]
+    df = assignft(df)
     df = df[df.filetype != 'dontsync']
     df = df[~df.location.str.contains('.dropbox.cache') | ~df.iscache]
     df = df[~df.filename.str.contains('www.dropbox.com')]
+    df = set_source(df)
+    df = df[df.filetype != 'lck']
+    df = df.assign(
+        lochash=df.location.apply(lambda x: hashlib.md5(x.encode('utf-8')).hexdigest()))
     return df
+
+
+def filterdown(df):
+    filehash = df.lochash.unique()
+    backup_rename = []
+    for fh in filehash:
+        sub = df[df.lochash == fh]
+        if len(sub) == 1:
+            digest = sub.digest.iloc[0]
+            dig_sub = df[df.digest == digest]
+            if len(dig_sub.source.unique()) == 2:
+                truth = dig_sub[dig_sub.source == 'Z'].index[0]
+                target = dig_sub[dig_sub.source == 'W'].index[0]
+
+
+def test_joint2(df, joint):
+    lochash = df[df.digest.isin(joint)].lochash  # all loc_hash for joint
+    loc = df[df.lochash.isin(lochash)]
+
+    digest_per_lochash = loc.groupby('lochash').digest.unique().to_frame()
+    digest_per_lochash['length'] = digest_per_lochash.digest.apply(len)
+    sub_digest_per_lochash = digest_per_lochash[digest_per_lochash.length > 1]
+    sub_digest_per_lochash['try_nan'] = sub_digest_per_lochash.digest.apply(
+        lambda x: x[1])
+    # failure to read, unsure if changed
+    sub_dig_has_nan = sub_digest_per_lochash[sub_digest_per_lochash.try_nan.isnull()]
+    # files are different between location, determine which to keep
+    sub_dig_not_nan = sub_digest_per_lochash[sub_digest_per_lochash.try_nan.notnull()]
+    return sub_dig_not_nan, sub_dig_has_nan  # pass 1st digest col to determine latest
+
+
+def test_disjoint(df, disjoint):
+    lochash = df[df.digest.isin(disjoint)].lochash  # all loc_hash for joint
+    loc = df[df.lochash.isin(lochash)]
+
+    digest_per_lochash = loc.groupby('lochash').digest.unique().to_frame()
+    digest_per_lochash['length'] = digest_per_lochash.digest.apply(len)
+    sub_digest_per_lochash = digest_per_lochash[digest_per_lochash.length == 1]
+    return sub_digest_per_lochash
+
+
+"""
+Plan
+For Joint - run test_joint2 on joint. This creates a record of copy from W to Z. Can
+    ignore lochash == 1
+For Disjoint - run test_joint2 to get matches >1
+    For disjoint_w - copy W to Z, if mtime on W is greater than Z.
+    
+    run test_disjoint to get matches == 1. These need to be copied to other destination.
+"""
+
+
+def determine_latest(df, digest_pairs):
+    """Takes output of test_joint2"""
+    data = []
+    for pair in digest_pairs:
+        sub = df[df.digest.isin(pair)]
+        # print(sub.digest.nunique(), sub.lochash.nunique())
+        # 2 files per sub, up to 6 locations. Plan, get latest file and copy to all Z locations
+        from_rec = sub[sub.mtime == sub.mtime.max()].head(1)
+        to_locs = sub[(sub.source == 'Z') & (sub.digest != from_rec.digest.iloc[0])]
+        # print(sub)
+        for ix in to_locs.index:
+            data.append((from_rec.path.iloc[0], to_locs.loc[ix].path))
+    return data
+
+
+def make_copy_from_to_since_source(df, test_disjoint_out):
+    sub = df[df.lochash.isin(test_disjoint_out.index)]
+    base_w = 'W:/Z Drive Backup 4-14-18/Dropbox'
+    base_z = r'Z:/Dropbox (G Family)'
+    if sub.path.iloc[0].startswith('W'):
+        base = base_z
+        from_path = sub.location.str.replace('root', base_w)
+    elif sub.path.iloc[0].startswith('Z'):
+        base = base_w
+        from_path = sub.location.str.replace('root', base_z)
+    to_path = sub.location.str.replace('root', base)
+    return list(zip(from_path, to_path))
+
+
+def run_make_dataset(df):
+    # disjoint_w - missing in Z
+    x = test_disjoint(df, disjoint_w)
+    files_to_add = make_copy_from_to_since_source(df, x)
+
+    a, b = test_joint2(df, disjoint_w)
+    files_to_update = determine_latest(df, a.digest)
+
+    c, d = test_joint2(df, joint)
+    files_to_update_jnt = determine_latest(df, c.digest)
+
+
+def make_path(path):
+    """assumes path has a file attached"""
+    def get_path(*items):
+        return '/'.join(items)
+
+    parts = path.split('/')
+    fn = parts[-1]
+    parts = parts[:-1]
+
+    base = get_path(*parts[:2])
+    parts = parts[2:]
+    for i, p in enumerate(parts):
+        new_path = get_path(base, *parts[:(i+1)])
+        if not os.path.exists(new_path):
+            os.mkdir(new_path)
+
+
+def string_similarity(a, b):
+    return fuzz.token_set_ratio(a, b)
 
 
 def is_cache(x):
@@ -70,34 +201,42 @@ def print_sets(dfw, dfz):
     print(dfw.shape, dfz.shape)
     print('joint', len(joint))
     print('disjoint_z', len(disjoint_z))
-    print('disjoint_w', len(disjoint_w))
+    print('disjoint_w', len(disjoint_w), '\n')
 
 
 if __name__ == "__main__":
-    dfw0 = pd.read_pickle(os.path.join(datapath, 'index 57a83ef1_2018-04-21-10-44-36.p'))
-    dfz0 = pd.read_pickle(os.path.join(datapath, 'index e7c3ebbe_2018-04-21-10-39-49.p'))
+    # dfw0 = pd.read_pickle(os.path.join(datapath, 'index 57a83ef1_2018-04-21-10-44-36.p'))
+    # dfz0 = pd.read_pickle(os.path.join(datapath, 'index e7c3ebbe_2018-04-21-10-39-49.p'))
+    #
+    # fw = pd.read_pickle(os.path.join(datapath, 'failed_recs_2018-04-21-10-44-36.p'))
+    # fz = pd.read_pickle(os.path.join(datapath, 'failed_recs_2018-04-21-10-39-49.p'))
 
-    fw = pd.read_pickle(os.path.join(datapath, 'failed_recs_2018-04-21-10-44-36.p'))
-    fz = pd.read_pickle(os.path.join(datapath, 'failed_recs_2018-04-21-10-39-49.p'))
+    dfw0 = pd.read_pickle(os.path.join(datapath, 'index 0f7577f2_2018-04-21-21-36-48.p'))
+    dfz0 = pd.read_pickle(os.path.join(datapath, 'index fd7fa1b0_2018-04-21-21-40-25.p'))
 
-    mz = pd.concat([dfz0, fz])
-    mw = pd.concat([dfw0, fw])
+    fw0 = pd.read_pickle(os.path.join(datapath, 'failed_recs_2018-04-21-21-36-48.p'))
+    fz0 = pd.read_pickle(os.path.join(datapath, 'failed_recs_2018-04-21-21-40-25.p'))
 
     dfw = process(dfw0)
     dfz = process(dfz0)
+    fw = process(fw0)
+    fz = process(fz0)
+
+    df = pd.concat([dfw, dfz, fw, fz]).reset_index(drop=True)
 
     set_w = set(dfw.digest)
     set_z = set(dfz.digest)
 
+    print('full sets')
     joint = set_w.intersection(set_z)
     disjoint_w = set_w.difference(set_z)
     disjoint_z = set_z.difference(set_w)
     print_sets(dfw, dfz)
-
+    print('dot underscore')
     _dfw = dfw[dfw.filename.str.startswith('._')]
     _dfz = dfz[dfz.filename.str.startswith('._')]
     print_sets(_dfw, _dfz)
-
+    print('not dot underscore')
     _dfwn = dfw[~dfw.filename.str.startswith('._')]
     _dfzn = dfz[~dfz.filename.str.startswith('._')]
     print_sets(_dfwn, _dfzn)

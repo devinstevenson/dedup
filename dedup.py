@@ -11,7 +11,7 @@ if sys.version_info.major == 2:
     import cPickle as pickle
 else:
     import pickle
-
+# PY3
 REG_NOT_ASCII = r'[^\x00-\x7f]'
 BYTES_CHUNK = 4096
 if sys.version_info.major == 2:
