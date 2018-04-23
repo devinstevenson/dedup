@@ -3,7 +3,7 @@ import hashlib
 import logging
 import shutil
 import pandas as pd
-from fuzzywuzzy import fuzz
+# from fuzzywuzzy import fuzz
 
 # PY3
 bkup = [{'hash': '57a83ef1', 'path': 'W:/Z Drive Backup 4-14-18'},
@@ -230,8 +230,8 @@ def make_path(path):
     #         os.mkdir(new_path)
 
 
-def string_similarity(a, b):
-    return fuzz.token_set_ratio(a, b)
+# def string_similarity(a, b):
+#     return fuzz.token_set_ratio(a, b)
 
 
 def is_cache(x):
