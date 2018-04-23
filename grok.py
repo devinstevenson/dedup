@@ -1,5 +1,6 @@
 import os
 import hashlib
+import logging
 import shutil
 import pandas as pd
 from fuzzywuzzy import fuzz
@@ -15,6 +16,14 @@ datapath = '/Users/devinstevenson/Dropbox/tech_dedup'
 deletable = ['.DS_Store', '._.DS_Store', '.ds_store', '.dropbox.attr', '.dropbox',
              '.dropbox.cache', 'Thumbs.db' '.dropbox.device']
 delete_filename = ['desktop.ini']
+
+
+FORMAT = ('%(levelname)s: %(asctime)s: lineno=%(lineno)s: '
+          'function=%(funcName)s: %(message)s')
+formatter = logging.Formatter(FORMAT)
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def add_location(df):
@@ -169,6 +178,8 @@ def run_make_dataset(df):
 
 def update_files(pairs):
     for source, dest in pairs:
+        logger.info("Source %s", source)
+        logger.info("Dest %s", dest)
         back_file(dest)
         shutil.copyfile(source, dest)
 
@@ -176,12 +187,15 @@ def update_files(pairs):
 def add_files(pairs):
     for source, dest in pairs:
         make_path(dest)
+        logger.info("Source %s", source)
+        logger.info("Dest %s", dest)
         shutil.copyfile(source, dest)
 
 
 def back_file(filepath):
     bkp_path = 'Z:/Dropbox (G Family)/tech_dedup/tmp'
     if not os.path.exists(bkp_path):
+        logger.info("Make Dir %s", bkp_path)
         os.makedirs(bkp_path)
     parts = filepath.split('/')
     fn = parts[-1]
@@ -190,6 +204,8 @@ def back_file(filepath):
         shutil.copyfile(filepath, dest)
     else:
         shutil.copyfile(filepath, dest + '1')
+    logger.info("Source %s", filepath)
+    logger.info("Dest %s", dest)
 
 
 def make_path(path):
@@ -200,6 +216,7 @@ def make_path(path):
     parts = path.split('/')
     fn = parts[-1]
     parts = parts[:-1]
+    logger.info("make path %s", get_path(*parts))
     os.makedirs(get_path(*parts))
     # base = get_path(*parts[:2])
     # parts = parts[2:]
