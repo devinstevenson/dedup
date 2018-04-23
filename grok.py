@@ -221,7 +221,7 @@ def make_path(path):
     fn = parts[-1]
     parts = parts[:-1]
     logger.info("make path %s", get_path(*parts))
-    os.makedirs(get_path(*parts))
+    os.makedirs(get_path(*parts), exist_ok=True)
     # base = get_path(*parts[:2])
     # parts = parts[2:]
     # for i, p in enumerate(parts):
