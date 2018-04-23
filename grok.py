@@ -24,6 +24,10 @@ formatter = logging.Formatter(FORMAT)
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+logfilename = 'grok_log.log'
+filelog = logging.FileHandler(logfilename)
+filelog.setFormatter(formatter)
+logging.root.addHandler(filelog)
 
 
 def add_location(df):
