@@ -1,5 +1,6 @@
 import os
 import hashlib
+import shutil
 import pandas as pd
 from fuzzywuzzy import fuzz
 
@@ -166,6 +167,31 @@ def run_make_dataset(df):
     files_to_update_jnt = determine_latest(df, c.digest)
 
 
+def update_files(pairs):
+    for source, dest in pairs:
+        back_file(dest)
+        shutil.copyfile(source, dest)
+
+
+def add_files(pairs):
+    for source, dest in pairs:
+        make_path(dest)
+        shutil.copyfile(source, dest)
+
+
+def back_file(filepath):
+    bkp_path = 'Z:/Dropbox (G Family)/tech_dedup/tmp'
+    if not os.path.exists(bkp_path):
+        os.makedirs(bkp_path)
+    parts = filepath.split('/')
+    fn = parts[-1]
+    dest = '/'.join([bkp_path, fn])
+    if not os.path.exists(dest):
+        shutil.copyfile(filepath, dest)
+    else:
+        shutil.copyfile(filepath, dest + '1')
+
+
 def make_path(path):
     """assumes path has a file attached"""
     def get_path(*items):
@@ -174,13 +200,13 @@ def make_path(path):
     parts = path.split('/')
     fn = parts[-1]
     parts = parts[:-1]
-
-    base = get_path(*parts[:2])
-    parts = parts[2:]
-    for i, p in enumerate(parts):
-        new_path = get_path(base, *parts[:(i+1)])
-        if not os.path.exists(new_path):
-            os.mkdir(new_path)
+    os.makedirs(get_path(*parts))
+    # base = get_path(*parts[:2])
+    # parts = parts[2:]
+    # for i, p in enumerate(parts):
+    #     new_path = get_path(base, *parts[:(i+1)])
+    #     if not os.path.exists(new_path):
+    #         os.mkdir(new_path)
 
 
 def string_similarity(a, b):
