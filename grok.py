@@ -296,7 +296,7 @@ def crawl(source,
                     logger.info("Dest %s", dst_full_file)
                     if not dry:
                         make_path(dst_full_file)
-                        shutil.copyfile(source, dst_full_file)
+                        shutil.copyfile(src_full_file, dst_full_file)
                     copy.append(src_full_file)
             except FileNotFoundError:
                 fail.append(src_full_file)
