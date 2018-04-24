@@ -253,7 +253,7 @@ def crawl(source,
     copy = []
     for fullfolder, _, files in os.walk(source):
         for f in files:
-            if f in deletable:
+            if f in deletable or f.startswith('.'):
                 continue
             fullfolder = fix_slash(fullfolder)
             split = fullfolder.split('/')
