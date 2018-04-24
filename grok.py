@@ -284,7 +284,7 @@ def crawl(source,
                         logger.info("Dest %s", dst_full_file)
                         if not dry:
                             back_file(dst_full_file)
-                            shutil.copyfile(source, dst_full_file)
+                            shutil.copyfile(src_full_file, dst_full_file)
 
                         new_time.append(src_full_file)
                     else:
@@ -300,6 +300,11 @@ def crawl(source,
                     copy.append(src_full_file)
             except FileNotFoundError:
                 fail.append(src_full_file)
+    print("same: ", len(same_time))
+    print("new: ", len(new_time))
+    print("copy: ", len(copy))
+    print("fail: ", len(fail))
+    print("skip: ", len(skip))
     return same_time, new_time, copy, fail, skip
 
 
