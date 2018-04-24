@@ -255,7 +255,8 @@ def crawl(source,
         for f in files:
             if f in deletable:
                 continue
-            split = fullfolder.split(os.path.sep)
+            fullfolder = fix_slash(fullfolder)
+            split = fullfolder.split('/')
             filt = [s for s in split if s not in roots]
             if filt[0] == '':
                 filt.pop(0)
