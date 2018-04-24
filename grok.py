@@ -3,6 +3,7 @@ import hashlib
 import logging
 import shutil
 import pandas as pd
+
 # from fuzzywuzzy import fuzz
 
 # PY3
@@ -16,7 +17,6 @@ datapath = '/Users/devinstevenson/Dropbox/tech_dedup'
 deletable = ['.DS_Store', '._.DS_Store', '.ds_store', '.dropbox.attr', '.dropbox',
              '.dropbox.cache', 'Thumbs.db' '.dropbox.device']
 delete_filename = ['desktop.ini']
-
 
 FORMAT = ('%(levelname)s: %(asctime)s: lineno=%(lineno)s: '
           'function=%(funcName)s: %(message)s')
@@ -208,8 +208,8 @@ def back_file(filepath):
         logger.info("Make Dir %s", bkp_path)
         os.makedirs(bkp_path)
     parts = filepath.split('/')
-    fn = parts[-1]
-    dest = '/'.join([bkp_path, fn])
+    # fn = parts[-1]
+    dest = '/'.join([bkp_path] + parts[1:])
     if not os.path.exists(dest):
         shutil.copyfile(filepath, dest)
     else:
@@ -220,6 +220,7 @@ def back_file(filepath):
 
 def make_path(path):
     """assumes path has a file attached"""
+
     def get_path(*items):
         return '/'.join(items)
 
@@ -238,6 +239,60 @@ def make_path(path):
 
 # def string_similarity(a, b):
 #     return fuzz.token_set_ratio(a, b)
+
+
+def crawl(source,
+          src_root='W:/Z Drive Backup 4-14-18/Dropbox',
+          dst_root='Z:/Dropbox (G Family)',
+          dry=True):
+    roots = ['/', 'W', 'W:', 'Z Drive Backup 4-14-18', 'Dropbox',
+             'Z', 'Z:', 'Dropbox (G Family)', 'Users', 'devinstevenson', 'PycharmProjects', 'deduper']
+
+    same_time = []
+    new_time = []
+    copy = []
+    for fullfolder, _, files in os.walk(source):
+        for f in files:
+            if f in deletable:
+                continue
+            split = fullfolder.split(os.path.sep)
+            filt = [s for s in split if s not in roots]
+            if filt[0] == '':
+                filt.pop(0)
+            folder = '/'.join(filt)
+            # dst_folder = '/'.join([dst_root, folder])
+            print(folder)
+            print(src_root)
+            print(dst_root)
+            src_full_file = '/'.join([src_root, folder, f])
+            dst_full_file = '/'.join([dst_root, folder, f])
+            src_stat = os.stat(src_full_file)
+            if os.path.exists(dst_full_file):
+                dst_stat = os.stat(dst_full_file)
+                if src_stat.st_mtime == dst_stat.st_mtime:
+                    same_time.append(src_full_file)
+                    logger.info("Same Time %s", src_full_file)
+                elif src_stat.st_mtime > dst_stat.st_mtime:
+                    # backup, then copy src to dst
+                    logger.info("New Time:")
+                    logger.info("Source %s", src_full_file)
+                    logger.info("Dest %s", dst_full_file)
+                    if not dry:
+                        back_file(dst_full_file)
+                        shutil.copyfile(source, dst_full_file)
+
+                    new_time.append(src_full_file)
+                else:
+                    pass  # ignore, nothing needs to be done
+            else:
+                logger.info("Copy:")
+                logger.info("Source %s", src_full_file)
+                logger.info("Dest %s", dst_full_file)
+                if not dry:
+                    make_path(dst_full_file)
+                    shutil.copyfile(source, dst_full_file)
+                copy.append(src_full_file)
+    return same_time, new_time, copy
 
 
 def is_cache(x):
