@@ -265,9 +265,6 @@ def crawl(source,
                 filt.pop(0)
             folder = '/'.join(filt)
             # dst_folder = '/'.join([dst_root, folder])
-            print(folder)
-            print(src_root)
-            print(dst_root)
             src_full_file = '/'.join([src_root, folder, f])
             dst_full_file = '/'.join([dst_root, folder, f])
             try:
