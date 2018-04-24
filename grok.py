@@ -251,6 +251,7 @@ def crawl(source,
     same_time = []
     new_time = []
     copy = []
+    fail = []
     for fullfolder, _, files in os.walk(source):
         for f in files:
             if f in deletable or f.startswith('.'):
@@ -267,33 +268,36 @@ def crawl(source,
             print(dst_root)
             src_full_file = '/'.join([src_root, folder, f])
             dst_full_file = '/'.join([dst_root, folder, f])
-            src_stat = os.stat(src_full_file)
-            if os.path.exists(dst_full_file):
-                dst_stat = os.stat(dst_full_file)
-                if src_stat.st_mtime == dst_stat.st_mtime:
-                    same_time.append(src_full_file)
-                    logger.info("Same Time %s", src_full_file)
-                elif src_stat.st_mtime > dst_stat.st_mtime:
-                    # backup, then copy src to dst
-                    logger.info("New Time:")
+            try:
+                src_stat = os.stat(src_full_file)
+                if os.path.exists(dst_full_file):
+                    dst_stat = os.stat(dst_full_file)
+                    if src_stat.st_mtime == dst_stat.st_mtime:
+                        same_time.append(src_full_file)
+                        logger.info("Same Time %s", src_full_file)
+                    elif src_stat.st_mtime > dst_stat.st_mtime:
+                        # backup, then copy src to dst
+                        logger.info("New Time:")
+                        logger.info("Source %s", src_full_file)
+                        logger.info("Dest %s", dst_full_file)
+                        if not dry:
+                            back_file(dst_full_file)
+                            shutil.copyfile(source, dst_full_file)
+
+                        new_time.append(src_full_file)
+                    else:
+                        pass  # ignore, nothing needs to be done
+                else:
+                    logger.info("Copy:")
                     logger.info("Source %s", src_full_file)
                     logger.info("Dest %s", dst_full_file)
                     if not dry:
-                        back_file(dst_full_file)
+                        make_path(dst_full_file)
                         shutil.copyfile(source, dst_full_file)
-
-                    new_time.append(src_full_file)
-                else:
-                    pass  # ignore, nothing needs to be done
-            else:
-                logger.info("Copy:")
-                logger.info("Source %s", src_full_file)
-                logger.info("Dest %s", dst_full_file)
-                if not dry:
-                    make_path(dst_full_file)
-                    shutil.copyfile(source, dst_full_file)
-                copy.append(src_full_file)
-    return same_time, new_time, copy
+                    copy.append(src_full_file)
+            except FileNotFoundError:
+                fail.append(src_full_file)
+    return same_time, new_time, copy, fail
 
 
 def is_cache(x):
