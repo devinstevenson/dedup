@@ -252,9 +252,11 @@ def crawl(source,
     new_time = []
     copy = []
     fail = []
+    skip = []
     for fullfolder, _, files in os.walk(source):
         for f in files:
             if f in deletable or f.startswith('.'):
+                skip.append(f)
                 continue
             fullfolder = fix_slash(fullfolder)
             split = fullfolder.split('/')
@@ -286,6 +288,7 @@ def crawl(source,
 
                         new_time.append(src_full_file)
                     else:
+                        skip.append(f)
                         pass  # ignore, nothing needs to be done
                 else:
                     logger.info("Copy:")
@@ -297,7 +300,7 @@ def crawl(source,
                     copy.append(src_full_file)
             except FileNotFoundError:
                 fail.append(src_full_file)
-    return same_time, new_time, copy, fail
+    return same_time, new_time, copy, fail, skip
 
 
 def is_cache(x):
