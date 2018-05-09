@@ -285,7 +285,7 @@ def crawl(source,
 
                         new_time.append(src_full_file)
                     else:
-                        skip.append(f)
+                        skip.append(src_full_file)
                         pass  # ignore, nothing needs to be done
                 else:
                     logger.info("Copy:")
