@@ -1,9 +1,13 @@
+from collections import namedtuple
 import os
 import hashlib
 import logging
 import shutil
 import pandas as pd
+from dedup import hash_reader
 
+
+CrawlType = namedtuple("CrawlType", "same,update,copy,fail,skip,old")
 # from fuzzywuzzy import fuzz
 
 # PY3
@@ -246,63 +250,76 @@ def crawl(source,
           dst_root='Z:/Dropbox (G Family)',
           dry=True):
     roots = ['/', 'W', 'W:', 'Z Drive Backup 4-14-18', 'Dropbox',
-             'Z', 'Z:', 'Dropbox (G Family)', 'Users', 'devinstevenson', 'PycharmProjects', 'deduper']
-
-    same_time = []
-    new_time = []
+             'Z', 'Z:', 'Dropbox (G Family)', 'Users', 'devinstevenson',
+             'PycharmProjects', 'deduper']
+    logger.setLevel(logging.ERROR)
+    same = []
+    update = []
     copy = []
     fail = []
     skip = []
+    old = []
     for fullfolder, _, files in os.walk(source):
         for f in files:
             if f in deletable or f.startswith('.'):
                 skip.append(f)
+                print("skip:", f)
                 continue
-            fullfolder = fix_slash(fullfolder)
-            split = fullfolder.split('/')
-            filt = [s for s in split if s not in roots]
-            if filt[0] == '':
-                filt.pop(0)
-            folder = '/'.join(filt)
-            # dst_folder = '/'.join([dst_root, folder])
-            src_full_file = '/'.join([src_root, folder, f])
-            dst_full_file = '/'.join([dst_root, folder, f])
+            # fullfolder = fix_slash(fullfolder)
+            # split = fullfolder.split('/')
+            # print(split)
+            # filt = [s for s in split if s not in roots]
+            # if filt[0] == '' or filt[0] == '.':
+            #     filt.pop(0)
+            # folder = '/'.join(filt)
+            # src_full_file = '/'.join([src_root, folder, f])
+            # dst_full_file = '/'.join([dst_root, folder, f])
+            subpath = os.path.join(fullfolder, f)[2:]
+            # print(subpath)
+            src_full_file = os.path.join(src_root, subpath)
+            dst_full_file = os.path.join(dst_root, subpath)
             try:
                 src_stat = os.stat(src_full_file)
                 if os.path.exists(dst_full_file):
                     dst_stat = os.stat(dst_full_file)
+                    src_hash = hash_reader(src_full_file)
+                    dst_hash = hash_reader(dst_full_file)
+                    if src_hash == dst_hash:
+                        same.append(src_full_file)
+                        logger.info("Same Hash")
+                        continue
                     if src_stat.st_mtime == dst_stat.st_mtime:
-                        same_time.append(src_full_file)
+                        same.append(src_full_file)
                         logger.info("Same Time %s", src_full_file)
                     elif src_stat.st_mtime > dst_stat.st_mtime:
                         # backup, then copy src to dst
-                        logger.info("New Time:")
-                        logger.info("Source %s", src_full_file)
-                        logger.info("Dest %s", dst_full_file)
+                        logger.info("New Time:Source %s", src_full_file)
+                        logger.info("New Time:Dest %s", dst_full_file)
+
                         if not dry:
                             back_file(dst_full_file)
                             shutil.copyfile(src_full_file, dst_full_file)
 
-                        new_time.append(src_full_file)
+                        update.append(src_full_file)
                     else:
-                        skip.append(src_full_file)
-                        pass  # ignore, nothing needs to be done
+                        print('old:', src_full_file)
+                        old.append(src_full_file)
                 else:
-                    logger.info("Copy:")
-                    logger.info("Source %s", src_full_file)
-                    logger.info("Dest %s", dst_full_file)
+                    logger.info("Copy:Source %s", src_full_file)
+                    logger.info("Copy:Dest %s", dst_full_file)
                     if not dry:
                         make_path(dst_full_file)
                         shutil.copyfile(src_full_file, dst_full_file)
                     copy.append(src_full_file)
             except FileNotFoundError:
                 fail.append(src_full_file)
-    print("same: ", len(same_time))
-    print("new: ", len(new_time))
+    print("same: ", len(same))
+    print("update : ", len(update))
     print("copy: ", len(copy))
     print("fail: ", len(fail))
     print("skip: ", len(skip))
-    return same_time, new_time, copy, fail, skip
+    print("old : ", len(old))
+    return CrawlType(same, update, copy, fail, skip, old)
 
 
 def is_cache(x):
